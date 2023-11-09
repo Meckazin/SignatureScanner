@@ -4,14 +4,17 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Net;
+using System.Net.NetworkInformation;
 using System.Runtime.InteropServices;
 using Reloaded.Memory.Sigscan;
 using static ByteScanner.Native;
 
 namespace ByteScanner
 {
+    //https://reloaded-project.github.io/Reloaded-II/CheatSheet/SignatureScanning/
     internal class Program
     {
+        public static bool verbose = false;
         static void Usage()
         {
             Console.WriteLine("Scan pid 1122 for pattern ABBA ABBA ABBA");
@@ -58,20 +61,111 @@ namespace ByteScanner
             var scanner = new Scanner(proc, module);
             var patternResult = scanner.FindPatterns(searchPatterns);
 
-            if (patternResult.Length < searchPatterns.Count)
-                Console.WriteLine("What?");
-
             if (patternResult.Any(x => x.Found))
             {
                 var hitCount = patternResult.Where(x => x.Found).Count();
                 Console.WriteLine("Got {0} hits with the provided patterns", hitCount);
                 foreach (var result in patternResult.Where(x => x.Found))
                 {
-                    Console.WriteLine("    Got hit on offset: {0}", result.Offset);
+                    Console.WriteLine("    Got hit on address: {0:X}", ((long)result.Offset + (long)module.BaseAddress));
                 }
             }
-            else
-                Console.WriteLine("Could not find any hits on module: {0}",module.ModuleName);
+            else { 
+                if(verbose)
+                    Console.WriteLine("Could not find any hits on module: {0}",module.ModuleName);
+            }
+        }
+
+        static void ScanMemory(int procPid, List<string> searchPatterns) {
+
+            IntPtr hProc = OpenProcess(PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, false, procPid);
+            if (hProc == IntPtr.Zero)
+            {
+                Console.Write("[-] Failed to open target process handle!");
+                return;
+            }
+
+            //We need to use this function to get max address value. Maybe you can also just hardcode for x64 and x86?
+            SYSTEM_INFO si;
+            GetSystemInfo(out si);
+
+            if (si.pageSize == 0)
+            {
+                Console.Write("[-] Failed to get System Info!");
+                return;
+            }
+
+            // saving the values as long ints so I won't have to do a lot of casts later
+            long proc_min_address_l = (long)si.minimumApplicationAddress;
+            long proc_max_address_l = (long)si.maximumApplicationAddress;
+
+            MEMORY_BASIC_INFORMATION basicInfo;
+            uint bufLen = (uint)Marshal.SizeOf(typeof(MEMORY_BASIC_INFORMATION));
+            //Scan target process memory pages
+            long address = proc_min_address_l;
+            int counter = 0;
+            do
+            {
+                if (VirtualQueryEx(hProc, (IntPtr)address, out basicInfo, bufLen) == 0)
+                {
+                    Console.WriteLine("[-] Failed to access process memory! ERROR: {0}", Marshal.GetLastWin32Error());
+                    Console.WriteLine("    Memory address was: 0x{0:X}", address);
+                    return;
+                }
+
+                if (verbose)
+                {
+                    Console.WriteLine("    BaseAddress: 0x{0:X}, Allocbase: 0x{1:X}, AllocSize {2}", basicInfo.BaseAddress, basicInfo.AllocationBase, basicInfo.RegionSize);
+                    Console.WriteLine("    Protection: {0:X}, Type: {1:X}, State: {2:X}", basicInfo.AllocationProtect, basicInfo.Type, basicInfo.State);
+                }
+
+                //We have to filter by readable memory only.
+                //A hack could be to set all target process memory areas to readable to access them?
+                if (basicInfo.Protect == (int)AllocationProtect.PAGE_EXECUTE_READ ||
+                basicInfo.Protect == (int)AllocationProtect.PAGE_READONLY ||
+                basicInfo.Protect == (int)AllocationProtect.PAGE_READWRITE ||
+                basicInfo.Protect == (int)AllocationProtect.PAGE_EXECUTE_READWRITE)
+                {
+                    byte[] buffer = new byte[basicInfo.RegionSize];
+                    IntPtr readlen;
+                    if (!ReadProcessMemory(hProc, (IntPtr)basicInfo.BaseAddress, buffer, (int)basicInfo.RegionSize, out readlen))
+                    {
+                        Console.WriteLine("[-] Failed to read process memory! ERROR: {0}", Marshal.GetLastWin32Error());
+                        Console.WriteLine("    Memory address was: 0x{0:X}", basicInfo.BaseAddress);
+
+                        Console.WriteLine("    BaseAddress: 0x{0:X}, Allocbase: 0x{1:X}, AllocSize {2}", basicInfo.BaseAddress, basicInfo.AllocationBase, basicInfo.RegionSize);
+                        Console.WriteLine("    Protection: {0:X}, Type: {1:X}, State: {2:X}", basicInfo.AllocationProtect, basicInfo.Type, basicInfo.State);
+                        return;
+                    }
+                    var scanner = new Scanner(buffer);
+                    var patternResult = scanner.FindPatterns(searchPatterns);
+
+                    if (patternResult.Any(x => x.Found))
+                    {
+                        var hitCount = patternResult.Where(x => x.Found).Count();
+                        Console.WriteLine("Got {0} hits with the provided patterns", hitCount);
+                        foreach (var result in patternResult.Where(x => x.Found))
+                        {
+                            Console.WriteLine("    Got hit on offset: 0x{0:X}", (basicInfo.BaseAddress + (ulong)result.Offset));
+                        }
+                    }
+                    else
+                    {
+                        if(verbose)
+                            Console.WriteLine("No hits on memory range: 0x{0:X} - 0x{1:X}", basicInfo.BaseAddress, (basicInfo.BaseAddress + (ulong)basicInfo.RegionSize));
+                    }
+                }
+                else if(verbose)
+                {
+                    Console.WriteLine("Cannot read memory of protection type: 0x{0:X}", basicInfo.Protect);
+                }
+
+                counter++;
+                if (address == (long)basicInfo.BaseAddress + (long)basicInfo.RegionSize)
+                    break;
+
+                address = (long)basicInfo.BaseAddress + (long)basicInfo.RegionSize;
+            } while (address <= proc_max_address_l);
         }
 
         static void Main(string[] args)
@@ -80,6 +174,7 @@ namespace ByteScanner
             List<string> searchPatterns = new List<string>();
             string inputFile = "";
             bool scanAllModules = false;
+            bool scanMemory = false;
 
             #region args
             if (args.Count() == 0)
@@ -136,7 +231,7 @@ namespace ByteScanner
             }
             if (arguments.ContainsKey("/pattern"))
             {
-                searchPatterns.Add(arguments["/pattern"].Trim('"'));
+                searchPatterns.Add(arguments["/pattern"].Trim('"').Trim());
                 if (searchPatterns.FirstOrDefault().Split(' ').Length <= 0)
                 {
                     Console.WriteLine("[-] Failed to parse pattern: {0}", searchPatterns.FirstOrDefault());
@@ -167,6 +262,12 @@ namespace ByteScanner
             }
             if (args.Contains("/all"))
                 scanAllModules = true;
+            if (args.Contains("/memory"))
+                scanMemory = true;
+            if (args.Contains("/v"))
+                verbose = true;
+            if (args.Contains("/verbose"))
+                verbose = true;
 
             #endregion
 
@@ -177,51 +278,26 @@ namespace ByteScanner
                 return;
             }
 
-            IntPtr hProc = OpenProcess(PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, false, procPid);
-            if (hProc == IntPtr.Zero)
-            {
-                Console.Write("[-] Failed to open target process handle!");
-                return;
-            }
-
-            MEMORY_BASIC_INFORMATION basicInfo;
-            uint bufLen = (uint)Marshal.SizeOf(typeof(MEMORY_BASIC_INFORMATION));
-            //Scan target process memory pages
-            long MaxAddress = 0x7fffffff;
-            long address = 0;
-            do
-            {
-                if (VirtualQueryEx(hProc, (IntPtr)address, out basicInfo, bufLen) == 0)
-                {
-                    Console.WriteLine("[-] Failed to access process memory! ERROR: {0}", Marshal.GetLastWin32Error());
-                    return;
-                }
-
-                if (basicInfo.Type != AllocationType.MEM_IMAGE)
-                {
-
-                }
-
-                if (address == (long)basicInfo.BaseAddress + (long)basicInfo.RegionSize)
-                    break;
-
-                address = (long)basicInfo.BaseAddress + (long)basicInfo.RegionSize;
-            } while (address <= MaxAddress);
-
-
             ScanModule(targetProcess, targetProcess.MainModule, searchPatterns);
 
             if (scanAllModules)
             {
-                Console.WriteLine("[*] Scannig all modules of the target process");
+                if(verbose)
+                    Console.WriteLine("[*] Scannig all modules of the target process");
                 foreach (ProcessModule module in targetProcess.Modules)
                 {
                     ScanModule(targetProcess, module, searchPatterns);
                 }
             }
 
-
-            Console.WriteLine("Finished searching for patterns. Hit any key to exit...");
+            if (scanMemory)
+            {
+                if (verbose)
+                    Console.WriteLine("[*] Scannig whole process memory");
+                ScanMemory(procPid, searchPatterns);
+            }
+            if (verbose)
+                Console.WriteLine("Finished searching for patterns. Hit any key to exit...");
             Console.ReadKey();
         }
     }

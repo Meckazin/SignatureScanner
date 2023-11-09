@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.InteropServices;
+using System.Security.Cryptography;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -16,8 +17,29 @@ namespace ByteScanner
         public static extern uint GetLastError();
         [DllImport("kernel32.dll", SetLastError = true)]
         public static extern int VirtualQueryEx(IntPtr hProcess, IntPtr lpAddress, out MEMORY_BASIC_INFORMATION lpBuffer, uint dwLength);
+        [DllImport("kernel32.dll")]
+        public static extern bool ReadProcessMemory(IntPtr hProcess, IntPtr lpBaseAddress, [Out] byte[] lpBuffer, int dwSize, out IntPtr lpNumberOfBytesRead);
+
         [DllImport("kernel32.dll", SetLastError = true)]
         public static extern IntPtr OpenProcess(uint dwDesiredAccess, bool bInheritHandle, int dwProcessId);
+        [DllImport("kernel32", SetLastError = true)]
+        public static extern void GetSystemInfo(out SYSTEM_INFO lpSystemInfo);
+
+        [StructLayout(LayoutKind.Sequential)]
+        public struct SYSTEM_INFO
+        {
+            public ushort processorArchitecture;
+            ushort reserved;
+            public uint pageSize;
+            public IntPtr minimumApplicationAddress;  // minimum address
+            public IntPtr maximumApplicationAddress;  // maximum address
+            public IntPtr activeProcessorMask;
+            public uint numberOfProcessors;
+            public uint processorType;
+            public uint allocationGranularity;
+            public ushort processorLevel;
+            public ushort processorRevision;
+        }
 
 #if x86
     [StructLayout(LayoutKind.Sequential)]

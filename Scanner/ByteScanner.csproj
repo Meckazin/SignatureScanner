@@ -73,8 +73,8 @@
     <Prefer32Bit>true</Prefer32Bit>
   </PropertyGroup>
   <ItemGroup>
-    <Reference Include="Reloaded.Memory, Version=9.1.0.0, Culture=neutral, processorArchitecture=MSIL">
-      <HintPath>..\packages\Reloaded.Memory.9.1.0\lib\netstandard2.0\Reloaded.Memory.dll</HintPath>
+    <Reference Include="Reloaded.Memory, Version=9.2.0.0, Culture=neutral, processorArchitecture=MSIL">
+      <HintPath>..\packages\Reloaded.Memory.9.2.0\lib\netstandard2.0\Reloaded.Memory.dll</HintPath>
     </Reference>
     <Reference Include="Reloaded.Memory.Sigscan, Version=3.1.8.0, Culture=neutral, processorArchitecture=MSIL">
       <HintPath>..\packages\Reloaded.Memory.Sigscan.3.1.8\lib\netstandard2.0\Reloaded.Memory.Sigscan.dll</HintPath>
