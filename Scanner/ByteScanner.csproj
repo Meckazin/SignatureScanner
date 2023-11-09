@@ -6,8 +6,8 @@
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
     <ProjectGuid>{9546D196-B3C4-4244-9BCD-93F9F0990690}</ProjectGuid>
     <OutputType>Exe</OutputType>
-    <RootNamespace>Scanner</RootNamespace>
-    <AssemblyName>Scanner</AssemblyName>
+    <RootNamespace>ByteScanner</RootNamespace>
+    <AssemblyName>ByteScanner</AssemblyName>
     <TargetFrameworkVersion>v4.6.1</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>

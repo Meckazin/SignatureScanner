@@ -22,10 +22,17 @@ namespace ByteScanner
             Console.WriteLine("Scan process CalculatorApp and all its loaded modules for pattern ABBA ABBA ABBA");
             Console.WriteLine("    .\\ByteScanner.exe /name:CalculatorApp.exe /pattern:\"AB BA AB BA AB BA\" /all");
             Console.WriteLine();
-            Console.WriteLine("Provide pattern in form of space delimited string, like:");
+            Console.WriteLine("Provide pattern in form of space delimited string:");
             Console.WriteLine("    11 22 AB 00 FF");
-            Console.WriteLine("You may use double question marks (??) and wildcard, like:");
+            Console.WriteLine("You may use double question marks (??) as wildcard:");
             Console.WriteLine("    11 22 ?? ?? FF");
+            Console.WriteLine();
+            Console.WriteLine("Flags:");
+            Console.WriteLine("/name        target process name, you may omit the file ending");
+            Console.WriteLine("/pid         target process PID");
+            Console.WriteLine("/pattern     Byte pattern to look for");
+            Console.WriteLine("/input       Byte pattern input file. One pattern per line");
+            Console.WriteLine("/v           Verbose print /verbose works as well");
         }
 
         public static List<string> ParseInputFile(string fileName)
