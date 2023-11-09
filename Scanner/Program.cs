@@ -74,7 +74,8 @@ namespace ByteScanner
                 Console.WriteLine("Got {0} hits with the provided patterns", hitCount);
                 foreach (var result in patternResult.Where(x => x.Found))
                 {
-                    Console.WriteLine("    Got hit on address: {0:X}", ((long)result.Offset + (long)module.BaseAddress));
+                    Console.WriteLine("    Got hit on address: 0x{0:X}", ((long)result.Offset + (long)module.BaseAddress));
+                    Console.WriteLine("    Base address: 0x{0:X} on offset 0x{1:X}", module.BaseAddress, (ulong)result.Offset);
                 }
             }
             else { 
@@ -153,7 +154,8 @@ namespace ByteScanner
                         Console.WriteLine("Got {0} hits with the provided patterns", hitCount);
                         foreach (var result in patternResult.Where(x => x.Found))
                         {
-                            Console.WriteLine("    Got hit on offset: 0x{0:X}", (basicInfo.BaseAddress + (ulong)result.Offset));
+                            Console.WriteLine("    Got hit on address: 0x{0:X}", (basicInfo.BaseAddress + (ulong)result.Offset));
+                            Console.WriteLine("    Base address: 0x{0:X} on offset 0x{1:X}", basicInfo.BaseAddress, (ulong)result.Offset);
                         }
                     }
                     else
