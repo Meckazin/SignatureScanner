@@ -306,8 +306,7 @@ namespace ByteScanner
                 ScanMemory(procPid, searchPatterns);
             }
             if (verbose)
-                Console.WriteLine("Finished searching for patterns. Hit any key to exit...");
-            Console.ReadKey();
+                Console.WriteLine("Finished searching for patterns.");
         }
     }
 }
